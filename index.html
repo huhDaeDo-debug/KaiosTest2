@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LiteHub · KaiOS</title>
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-size: 16px;
+      line-height: 1.4;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+    #app { max-width: 480px; margin: 0 auto; padding: 8px; }
+    header { text-align: center; padding: 12px 0 8px; border-bottom: 1px solid #333; }
+    header h1 { font-size: 1.4rem; font-weight: 600; color: #fff; }
+    header p { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+    #site-list { list-style: none; margin-top: 12px; }
+    #site-list li { margin-bottom: 6px; }
+
+    .site-link {
+      display: block;
+      padding: 14px 12px;
+      background: #2a2a2a;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      transition: background 0.1s, border-color 0.1s;
+      font-size: 0.95rem;
+      text-align: center;
+      word-break: break-word;
+    }
+    .site-link:focus {
+      outline: none;
+      border-color: #4a9eff;
+      background: #3a3a3a;
+      box-shadow: 0 0 0 2px #4a9eff44;
+    }
+    .site-link:active { background: #4a9eff; color: #000; }
+
+    .section-title {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin: 16px 0 8px 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #status { text-align: center; font-size: 0.8rem; color: #888; padding: 8px; min-height: 24px; }
+
+    #back-btn {
+      display: none;
+      width: 100%;
+      padding: 12px;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    #back-btn:focus { outline: none; background: #555; box-shadow: 0 0 0 2px #4a9eff; }
+
+    /* Botón de recarga (nuevo) */
+    #reload-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: #2a2a2a;
+      color: #ccc;
+      border: 1px solid #444;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    #reload-btn:focus {
+      outline: none;
+      background: #3a3a3a;
+      border-color: #4a9eff;
+      color: #fff;
+    }
+
+    /* Enlace de respaldo (nuevo) */
+    .backup-link {
+      display: block;
+      padding: 10px;
+      background: #222;
+      color: #888;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      text-align: center;
+      margin-top: 8px;
+      border: 1px solid #333;
+    }
+    .backup-link:focus {
+      outline: none;
+      background: #333;
+      border-color: #4a9eff;
+      color: #fff;
+    }
+
+    @media (max-width: 260px) {
+      header h1 { font-size: 1.1rem; }
+      .site-link { font-size: 0.8rem; padding: 10px 8px; }
+      .section-title { font-size: 0.75rem; }
+      #reload-btn { font-size: 0.7rem; padding: 8px; }
+      .backup-link { font-size: 0.65rem; padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>LiteHub</h1>
+      <p>Versiones ligeras · KaiOS</p>
+    </header>
+
+    <button id="back-btn" aria-label="Volver al inicio">← Volver</button>
+
+    <div id="status" aria-live="polite"></div>
+
+    <main id="view-home">
+      <ul id="site-list"></ul>
+    </main>
+
+    <main id="view-youtube" hidden>
+      <p class="section-title">Elige una instancia de YouTube Lite (Light-Tube)</p>
+      <ul id="youtube-list"></ul>
+      <button id="reload-btn" aria-label="Recargar lista de instancias">↻ Recargar lista</button>
+      <a id="backup-link" class="backup-link" href="https://github.com/AllforXP/Ligh-Tube">
+        Si la instancia falla, visita el repositorio oficial de Light-Tube
+      </a>
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ------------------------------------------------------------------
+      // 1. Configuración
+      // ------------------------------------------------------------------
+      // Light-Tube: frontend ligero basado en yt-dlp, diseñado para
+      // navegadores heredados (IE3+, Android 1.5-2.3.6, Symbian S60).
+      // Fuente: XDA Forums (7-sep-2026) y MSFN (6-sep-2026).
+      // Repositorio oficial: https://github.com/AllforXP/Ligh-Tube
+      var LIGHT_TUBE_INSTANCES = [
+        { name: 'ligh-tube.localto.net (Oficial)', url: 'http://ligh-tube.localto.net' }
+      ];
+
+      var OTHER_SITES = [
+        { name: 'Wikipedia Lite',           url: 'https://es.m.wikipedia.org' },
+        { name: 'Hacker News Lite',         url: 'https://news.ycombinator.com' },
+        { name: 'Google Noticias Lite',     url: 'https://news.google.com' },
+        { name: 'Reddit Lite (old.reddit)', url: 'https://old.reddit.com' }
+      ];
+
+      // ------------------------------------------------------------------
+      // 2. Utilidades DOM
+      // ------------------------------------------------------------------
+      var $ = function(sel) { return document.querySelector(sel); };
+
+      var viewHome    = $('#view-home');
+      var viewYoutube = $('#view-youtube');
+      var backBtn     = $('#back-btn');
+      var statusEl    = $('#status');
+      var siteList    = $('#site-list');
+      var youtubeList = $('#youtube-list');
+      var reloadBtn   = $('#reload-btn');
+
+      // ------------------------------------------------------------------
+      // 3. Generación de listas
+      // ------------------------------------------------------------------
+      function createListItem(text, url, onClick) {
+        var li = document.createElement('li');
+        var a  = document.createElement('a');
+        a.className   = 'site-link';
+        a.href        = url;
+        a.textContent = text;
+
+        if (onClick) {
+          a.addEventListener('click', function(e) {
+            e.preventDefault();
+            onClick();
+          });
+          a.setAttribute('role', 'button');
+          a.setAttribute('tabindex', '0');
+          a.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onClick();
+            }
+          });
+        }
+        li.appendChild(a);
+        return li;
+      }
+
+      function renderHome() {
+        siteList.innerHTML = '';
+
+        var ytItem = createListItem('▶ YouTube Lite', '#', function() {
+          showYoutubeView();
+        });
+        siteList.appendChild(ytItem);
+
+        OTHER_SITES.forEach(function(site) {
+          var li = createListItem(site.name, site.url);
+          siteList.appendChild(li);
+        });
+
+        var firstLink = siteList.querySelector('.site-link');
+        if (firstLink) firstLink.focus();
+
+        statusEl.textContent = 'Selecciona un sitio con las flechas y Enter.';
+      }
+
+      function renderYoutubeList() {
+        youtubeList.innerHTML = '';
+
+        LIGHT_TUBE_INSTANCES.forEach(function(instance) {
+          var li = document.createElement('li');
+          var a  = document.createElement('a');
+          a.className   = 'site-link';
+          a.href        = instance.url;
+          a.textContent = instance.name;
+          li.appendChild(a);
+          youtubeList.appendChild(li);
+        });
+
+        // El botón de recarga se enfoca primero para que el usuario
+        // pueda reintentar sin tener que navegar hasta el enlace.
+        // Pero también enfocamos el primer enlace si existe.
+        var firstLink = youtubeList.querySelector('.site-link');
+        if (firstLink) firstLink.focus();
+
+        statusEl.textContent = 'Usa Light-Tube. Si la instancia no responde, prueba el repositorio de respaldo.';
+      }
+
+      // ------------------------------------------------------------------
+      // 4. Navegación entre vistas
+      // ------------------------------------------------------------------
+      function showHomeView() {
+        viewHome.hidden    = false;
+        viewYoutube.hidden = true;
+        backBtn.style.display = 'none';
+        renderHome();
+      }
+
+      function showYoutubeView() {
+        viewHome.hidden    = true;
+        viewYoutube.hidden = false;
+        backBtn.style.display = 'block';
+        renderYoutubeList();
+      }
+
+      backBtn.addEventListener('click', showHomeView);
+      backBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          showHomeView();
+        }
+      });
+
+      // ------------------------------------------------------------------
+      // 5. Parche de mejoras: recarga de la lista
+      // ------------------------------------------------------------------
+      // Vuelve a generar la lista de instancias sin salir de la vista.
+      // Útil si en el futuro se añaden más instancias o si el foco
+      // se pierde tras una navegación fallida.
+      reloadBtn.addEventListener('click', function() {
+        renderYoutubeList();
+        statusEl.textContent = 'Lista recargada. Elige una instancia.';
+      });
+      reloadBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          renderYoutubeList();
+          statusEl.textContent = 'Lista recargada. Elige una instancia.';
+        }
+      });
+
+      // ------------------------------------------------------------------
+      // 6. Inicialización
+      // ------------------------------------------------------------------
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+        document.body.style.paddingTop = '4px';
+      }
+
+      renderHome();
+
+      window._litehub = { showHomeView: showHomeView, showYoutubeView: showYoutubeView };
+
+    })();
+  </script>
+</body>
+  </html>
